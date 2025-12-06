@@ -11,7 +11,7 @@ The project was completed as part of an MSc Cloud Computing assignment and demon
 ## Repository Structure
 
 ```text
-pyspark-air-quality/
+pyspark-air-quality-analysis/
 ├── Datasets/
 │   ├── WHO Dataset.xlsx          # WHO Ambient Air Quality Database (2022 release)
 │   └── POPULATION Dataset.csv    # World Bank country-level population data
