@@ -2,9 +2,9 @@
 
 ## Overview
 
-This project builds an end-to-end data pipeline in PySpark to analyse global air quality. It combines WHO city-level pollution measurements (PM2.5, PM10, NO2) with World Bank population data to produce two composite metrics: a Pollution Index and a population-weighted Health Risk Index. These allow cross-country and temporal comparisons that go beyond raw sensor readings and reflect actual population exposure.
+This project builds a data pipeline in PySpark to analyse global air quality. It combines WHO city-level pollution measurements (PM2.5, PM10, NO2) with World Bank population data to compute a Pollution Index and a population-weighted Health Risk Index, allowing cross-country and temporal comparisons of air pollution and population exposure.
 
-The project was completed as part of an MSc Cloud Computing assignment and demonstrates scalable distributed data processing using Apache Spark.
+The project was completed as part of an MSc Cloud Computing assignment using Apache Spark.
 
 ---
 
@@ -67,33 +67,28 @@ pyspark-air-quality-analysis/
 The full pipeline runs in a single Jupyter notebook across 8 steps.
 
 **Step 1 - Data Ingestion**
-The WHO Excel file is loaded via pandas (targeting the correct data sheet), written to a temporary CSV, then loaded into Spark. The population CSV is loaded directly. Both are stored as distributed DataFrames.
+The WHO Excel file is read with pandas using sheet `AAP_2022_city_v9` (the default tab is a README sheet and returns empty columns). Written to a temp CSV then loaded into Spark. Population data loaded directly from CSV.
 
-**Step 2 - Population Data Cleaning**
-Column names are standardised to lowercase. String columns are trimmed and lowercased for consistent joining.
+**Step 2 - Population Cleaning**
+Column names lowercased and renamed. String columns trimmed and lowercased to match the WHO naming convention before joining.
 
-**Step 3 - Entity Resolution and Merge**
-WHO country names are normalised using a lookup dictionary to fix known mismatches (e.g. "viet nam" to "vietnam", "russian federation" to "russia"). A left outer join on country name and year merges the two datasets while preserving all WHO rows.
+**Step 3 - Merge**
+WHO country names are standardised against a 23-entry lookup dict to fix known mismatches between WHO and World Bank naming conventions. Left join on standardised country name + year keeps all 32,196 WHO rows.
 
 **Step 4 - Validation**
-Pollutant columns are renamed (pm25, pm10, no2). Missing value rates, duplicate counts, and value ranges are checked. No impossible values (negatives) were found.
+Pollutant columns renamed to `pm25`, `pm10`, `no2`. Null rates, duplicate count, and value ranges checked. PM2.5 is around 30% null and NO2 around 53% null, which is normal for city-level monitoring data.
 
-**Step 5 - Advanced Cleaning**
-Duplicates and rows missing key identifiers are removed. Missing population values are filled with per-country medians. Missing pollutant values are imputed using per-country medians. Row count after cleaning: 30,247.
+**Step 5 - Cleaning and Imputation**
+Three duplicates removed. Missing population and pollutant values filled with per-country medians using PySpark window functions. Final row count: 30,247.
 
-**Step 6 - Feature Engineering**
-Two metrics are calculated per row:
+**Step 6 - Index Calculation**
+Pollution Index: coverage-adjusted average of available pollutants per row. Health Risk Index: `(Pollution Index × Population) / 1,000,000,000`. Pollutants categorised Low / Medium / High against WHO thresholds.
 
-- Pollution Index: weighted average of available pollutants, adjusted by temporal coverage
-- Health Risk Index: `(Pollution Index x Population) / 1,000,000,000`
-
-Pollutants are also categorised as Low / Medium / High based on WHO thresholds.
-
-**Step 7 - Final Validation**
-Summary statistics and null counts are checked across key columns to confirm the dataset is clean and ready for analysis.
+**Step 7 - Final Check**
+`describe()` and null counts on key columns confirm the dataset is clean.
 
 **Step 8 - Visualisations**
-Three charts are generated and saved to the `outputs/` folder: a bubble chart, a line chart showing trends over time, and a stacked bar chart showing PM composition by country.
+Bubble chart (Pollution Index vs Health Risk, top 10 countries), line chart (Pollution Index trends 2011–2018, top 5 by health risk), stacked bar chart (cumulative PM breakdown, top 10 by PM2.5). All saved to `outputs/`.
 
 ---
 
@@ -121,11 +116,11 @@ Java 8 or above is required for PySpark to run locally.
 
 ## Key Results
 
-- Pakistan and Bangladesh show the highest combined pollution and health risk scores, driven by large populations and high PM levels.
-- China has the highest total PM accumulation across all years, dominated by PM2.5.
-- India leads on PM10 totals, reflecting dust, construction, and biomass burning.
-- Bangladesh saw a sharp pollution peak around 2013-2014 followed by a decline.
-- India is the only top-5 country showing a consistent upward trend through 2018.
+- Pakistan and Bangladesh have the highest Health Risk Index scores, a product of high PM readings and large populations.
+- China has the largest cumulative PM2.5 total across all monitored years.
+- India has the largest cumulative PM10 total.
+- Bangladesh shows a spike in the Pollution Index around 2013–2014 followed by a decline through 2018.
+- India is the only top-5 country with a consistently rising Pollution Index across 2011–2018.
 
 ---
 
